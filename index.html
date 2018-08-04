@@ -1,0 +1,537 @@
+
+<style>
+
+  body  { margin : 0 ; }
+
+  canvas  { position : absolute ;
+            width : 100% ; }
+
+  video  { display : none ; }
+
+  div:nth-of-type( 1 )  { font-size : 10em ;
+                          color : rgb( 120 , 120 , 130 ) ; }
+
+  div:nth-of-type( 2 )  { font-size : 15em ;
+                          color : rgb( 200 , 160 , 180 ) ; }
+
+</style>
+
+
+<body  onload = 'init( )'  >
+
+  <canvas  id = 'ca'  ></canvas>
+
+  <div>  Warner by George Waraw  </div>
+  <div>  Touch to start  </div>
+
+  <video  id = 'viFlIn'  src = 'm PB Rain.mp4'  autoplay  loop  playsinline  ></video>
+  <video  id = 'viFlOu'  src = 'm PB Smoke.mp4'  autoplay  loop  playsinline  ></video>
+  <video  id = 'viEy'  src = 'm PB City 3.mp4'  autoplay  loop  playsinline  ></video>
+  <video  id = 'viCe'  src = 'm PB Sky 2.mp4'  autoplay  loop  playsinline  ></video>
+
+
+<script  src = 'three.js'  ></script>
+<!--<script  src = 'flyControls.js'  ></script>  &lt;!&ndash;  d ( 2 )  &ndash;&gt;-->
+<!--<script  src = 'stats.js'  ></script>-->
+<script  src = 'copyShader.js'  ></script>
+<script  src = 'effectComposer.js'  ></script>
+<script  src = 'renderPass.js'  ></script>
+<script  src = 'shaderPass.js'  ></script>
+
+<script  id = 'shVeCo'  type = 'shVe'  >
+
+  void main ( )
+  {
+    gl_Position = projectionMatrix * modelViewMatrix * vec4 ( position , 1. )
+    ;
+  }
+
+</script>
+<script  id = 'shFrCo'  type = 'shFr'  >
+
+  uniform float uTime
+  ;
+  uniform vec2 uResolution
+  ;
+  void main ( )
+  {
+    vec2 uv = ( 2. * gl_FragCoord.xy - uResolution ) / min ( uResolution.x , uResolution.y )
+    ;
+    vec3 initial = vec3 ( .25 * ( sin ( 6.28 * uv.x ) + sin ( 6.28 * uv.y * sin ( .75 * uTime ) ) ) )
+    ;
+    vec3 colored = vec3 ( initial.r , initial.g * .75 , initial.b * .9 )
+    ;
+    gl_FragColor = vec4 ( mix ( vec3 ( .5 , .5 , .5 ) , colored , .5 ) , 1. )
+    ;
+  }
+
+</script>
+
+<script  id = 'shVeEy'  type = 'shVe'  >
+
+  #include <common>
+  uniform float uTime
+  ;
+  varying vec2 vUv
+  ;
+  void main ( )
+  {
+    vUv = uv
+    ;
+    float noise = smoothstep ( .1 , .75 , rand ( vUv + .00000025 * uTime ) )
+    ;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4 ( position * noise , 1. )
+    ;
+  }
+
+</script>
+<script  id = 'shFrEy'  type = 'shFr'  >
+
+  uniform sampler2D uTexture
+  ;
+  varying vec2 vUv
+  ;
+  void main ( )
+  {
+    vec4 initial = texture2D ( uTexture, vUv )
+    ;
+    gl_FragColor = mix ( vec4 ( .5 , .5 , .5 , 1. ) , initial , .75 )
+    ;
+  }
+
+</script>
+
+<script  id = 'shVePo'  type = 'shVe'  >
+
+  varying vec2 vUv
+  ;
+  void main ( )
+  {
+    vUv = uv
+    ;
+    gl_Position = vec4 ( position , 1. )
+    ;
+  }
+
+</script>
+<script  id = 'shFrPo'  type = 'shFr'  >
+
+  #include <common>
+  uniform float uTime
+  ;
+  uniform sampler2D tDiffuse
+  ;
+  varying vec2 vUv
+  ;
+  void main ( )
+  {
+    vec4 initial = texture2D ( tDiffuse , vUv )
+    ;
+    vec4 colored = vec4 ( initial.r , ( initial.g + initial.b ) * .5 , ( initial.g + initial.b ) * .55 , 1. )
+    ;
+    gl_FragColor = colored + .025 * colored * rand ( vUv + .00000025 * uTime )
+    ;
+  }
+  //
+  //  og :
+  //       'TechnicolorShader' by 'flimshaw'
+  //       'FilmShader' by 'alteredq'
+
+</script>
+
+<script>
+
+    var canvas , renderer , camera , scene , meshAll
+    // ,   stats , controls , clock  //  d
+    ;
+  function init ( )
+  {
+    canvas = document.getElementById ( 'ca' )
+    ;
+    renderer = new THREE.WebGLRenderer ( { canvas : canvas , alpha : true } )
+    ;
+    renderer.setSize ( window.innerWidth / 5 , window.innerHeight / 5 , false )
+    ;
+    renderer.setClearColor ( 0x757575 , 1 )  //  gr 600
+    ;
+    camera = new THREE.PerspectiveCamera ( 60 , window.innerWidth / window.innerHeight , 1 , 100000 )
+    ;
+    scene = new THREE.Scene ( )
+    ;
+    scene.fog = new THREE.FogExp2 ( 0xFFFF8D , .000075 )  //  ye a100
+    ;
+    window.addEventListener ( 'resize' , resize )
+    ;
+    window.addEventListener ( 'click' , play )
+    ;
+    window.addEventListener ( 'touchstart' , play )
+    ;
+    geometry ( )
+    ;
+    materials ( )
+    ;
+    meshAll = [ ]
+    ;
+    world ( )
+    ;
+    meshes ( )
+    ;
+    lights ( )
+    ;
+    post ( )
+    ;
+    // stats = new Stats ( )  //  d ( 8 )
+    // ;
+    // document.body.appendChild ( stats.dom )
+    // ;
+    // controls = new THREE.FlyControls ( camera )
+    // ;
+    // clock = new THREE.Clock ( )
+    // ;
+  }
+
+  function resize ( )
+  {
+    camera.aspect = window.innerWidth / window.innerHeight
+    ;
+    camera.updateProjectionMatrix ( )
+    ;
+    renderer.setSize ( window.innerWidth / 5 , window.innerHeight / 5 , false )
+    ;
+    composer.reset ( )
+    ;
+  }
+
+    var n = 0
+    ;
+  function play ( )
+  {
+    switch ( n ++ ) {
+      case 1 :
+        camera.position.set ( 8000 , 500 , 5000 )
+        ;
+        camera.lookAt ( 4000 , 3000 , 3000 )
+        ;
+        break ;
+      case 2 :
+        camera.position.set ( 4000 , 7000 , 5000 )
+        ;
+        camera.lookAt ( 4000 , 0 , 2000 )
+        ;
+        break ;
+      case 3 :
+        camera.position.set ( 0 , 500 , 5000 )
+        ;
+        camera.lookAt ( 4000 , 2000 , 3000 )
+        ;
+        break ;
+      case 4 :
+        camera.position.set ( 4000 , 500 , 5000 )
+        ;
+        camera.lookAt ( 4000 , 1000 , 0 )
+        ;
+        n = 1
+        ;
+        break ;
+      default :
+        camera.position.set ( 4000 , 500 , 5000 )
+        ;
+        camera.lookAt ( 4000 , 1000 , 0 )
+        ;
+        videoFloorInner.play ( )
+        ;
+        videoFloorOuter.play ( )
+        ;
+        videoEye.play ( )
+        ;
+        videoCeiling.play ( )
+        ;
+        animate ( )
+        ;
+    }
+  }
+
+  function animate ( )
+  {
+    meshEye.rotation.y = uniforms.uTime.value = shader.uniforms.uTime.value += 1 / 60
+    ;
+    meshSnow.position.set ( camera.position.x - 2500 , camera.position.y - 2500 , camera.position.z - 2500 )
+    ;
+    meshSnow.rotation.z = Math.sin ( Date.now ( ) * .000025 ) * .2
+    ;
+    composer.render ( )
+    ;
+    requestAnimationFrame ( animate )
+    ;
+    // stats.update ( )  //  d ( 4 )
+    // ;
+    // controls.update ( clock.getDelta ( ) * 100 )
+    // ;
+  }
+
+    var geometryTile , geometryColumn , geometryEye , geometryLight , geometrySnow , geometryAll
+    ;
+  function geometry ( )
+  {
+    geometryTile = new THREE.PlaneGeometry ( 1000 , 1000 )
+    ;
+    geometryColumn = new THREE.PlaneGeometry ( 1000 , 7500 )
+    ;
+    geometryEye = new THREE.CylinderGeometry ( 62.5 , 625 , 625 , 4 )
+    ;
+    geometryLight = new THREE.CylinderGeometry ( 500 , 1500 , 7500 , 4 )
+    ;
+    geometrySnow = new THREE.Geometry ( )
+    ;
+      var vertex
+      ;
+    for ( var i = 0 ; i < 5000 ; i ++ ) {
+      vertex = new THREE.Vector3 ( 10000 * Math.random ( ) - 1000 , 10000 * Math.random ( ) - 1000 , 10000 * Math.random ( ) - 1000 )
+      ;
+      geometrySnow.vertices.push ( vertex )
+      ;
+    }
+    geometryAll = new THREE.Geometry ( )
+    ;
+  }
+
+    var videoFloorInner , videoFloorOuter , videoEye , videoCeiling , textureEye , materialAll , uniforms , materialColumn , materialEye , materialSnow
+    ;
+  function materials ( )
+  {
+    videoFloorInner = document.getElementById ( 'viFlIn' )
+    ;
+    var textureFloorInner = new THREE.VideoTexture ( videoFloorInner )
+    ;
+    textureFloorInner.minFilter = THREE.LinearFilter
+    ;
+    var materialFloorInner = new THREE.MeshLambertMaterial ( { map : textureFloorInner } )
+    ;
+    videoFloorOuter = document.getElementById ( 'viFlOu' )
+    ;
+    var textureFloorOuter = new THREE.VideoTexture ( videoFloorOuter )
+    ;
+    textureFloorOuter.minFilter = THREE.LinearFilter
+    ;
+    var materialFloorOuter = new THREE.MeshLambertMaterial ( { map : textureFloorOuter } )
+    ;
+    videoEye = document.getElementById ( 'viEy' )
+    ;
+    textureEye = new THREE.VideoTexture ( videoEye )
+    ;
+    textureEye.minFilter = THREE.LinearFilter
+    ;
+    videoCeiling = document.getElementById ( 'viCe' )
+    ;
+    var textureCeiling = new THREE.VideoTexture ( videoCeiling )
+    ;
+    textureCeiling.minFilter = THREE.LinearFilter
+    ;
+    var materialCeiling = new THREE.MeshLambertMaterial ( { map : textureCeiling } )
+    ;
+    var materialLight = new THREE.MeshLambertMaterial ( { color : 0x787882 , transparent : true , opacity : .05 } )
+    ;
+    materialAll = [ materialFloorInner , materialFloorOuter , materialCeiling , materialLight ]
+    ;
+    uniforms = {
+      uTime : { type : 'f' , value : 0. }
+      ,
+      uResolution : { type : 'v2' , value : new THREE.Vector2 ( canvas.width * .5 , canvas.height * .5 ) }
+      ,
+      uTexture : { type : 't' , value : textureEye }
+      ,
+      tDiffuse : { type : 't' , value : null }
+    } ;
+    materialColumn = new THREE.ShaderMaterial ( {
+      uniforms : uniforms
+      ,
+      vertexShader : document.getElementById ( 'shVeCo' ).textContent
+      ,
+      fragmentShader : document.getElementById ( 'shFrCo' ).textContent
+      ,
+      side : THREE.DoubleSide
+    } ) ;
+    materialEye = new THREE.ShaderMaterial ( {
+      uniforms : uniforms
+      ,
+      vertexShader : document.getElementById ( 'shVeEy' ).textContent
+      ,
+      fragmentShader : document.getElementById ( 'shFrEy' ).textContent
+    } ) ;
+    materialSnow = new THREE.PointsMaterial ( {
+      blending : THREE.SubtractiveBlending
+      ,
+      size : 12.5
+      ,
+      map : textureEye
+    } ) ;
+  }
+
+  function meshes ( )
+  {
+    for ( var i = meshAll.length ; i -- ; ) {
+      meshAll [ i ].mesh.updateMatrix ( )
+      ;
+      geometryAll.merge ( meshAll [ i ].mesh.geometry , meshAll [ i ].mesh.matrix , meshAll [ i ].materialIndex )
+      ;
+    }
+    meshAll = new THREE.Mesh ( geometryAll , materialAll )
+    ;
+    scene.add ( meshAll )
+    ;
+  }
+
+    var meshEye , meshSnow
+    ;
+  function world ( )
+  {
+    var map = [
+      '  bbedd  ' ,
+      ' bbooodd ' ,
+      'bbooooodd' ,
+      'boooooood' ,
+      'oooiiiooo' ,
+      'oooiiiooo' ,
+      'oooiiiooo' ,
+      'dooooooob' ,
+      'ddooooobb' ,
+      ' ddooobb ' ,
+      '  ddobb  '
+    ] ;
+    for ( var c = map.length ; c -- ; ) {
+      for ( var r = map [ c ].length ; r -- ; ) {
+        var mesh = new THREE.Mesh ( geometryTile )
+        ;
+        switch ( map [ c ].charAt ( r ) ) {
+          case 'o' :
+            mesh.rotation.set ( 270 * Math.PI / 180 , 0 , 0 )
+            ;
+            mesh.position.set ( r * 1000 , 0 , c * 1000 )
+            ;
+            meshAll.push ( { mesh : mesh , materialIndex : 1 } )
+            ;
+            break ;
+          case 'i' :
+            mesh.rotation.set ( 270 * Math.PI / 180 , 0 , 0 )
+            ;
+            mesh.position.set ( r * 1000 , 0 , c * 1000 )
+            ;
+            meshAll.push ( { mesh : mesh , materialIndex : 0 } )
+            ;
+            break ;
+          case 'b' :
+            mesh.rotation.set ( 270 * Math.PI / 180 , 0 , 0 )
+            ;
+            mesh.position.set ( r * 1000 , 0 , c * 1000 )
+            ;
+            meshAll.push ( { mesh : mesh , materialIndex : 1 } )
+            ;
+            mesh = new THREE.Mesh ( geometryColumn , materialColumn )
+            ;
+            mesh.rotation.set ( 0 , 45 * Math.PI / 180 , 0 )
+            ;
+            mesh.position.set ( r * 1000 , 3750 , c * 1000 )
+            ;
+            scene.add ( mesh )
+            ;
+            break ;
+          case 'd' :
+            mesh.rotation.set ( 270 * Math.PI / 180 , 0 , 0 )
+            ;
+            mesh.position.set ( r * 1000 , 0 , c * 1000 )
+            ;
+            meshAll.push ( { mesh : mesh , materialIndex : 1 } )
+            ;
+            mesh = new THREE.Mesh ( geometryColumn , materialColumn )
+            ;
+            mesh.rotation.set ( 0 , 135 * Math.PI / 180 , 0 )
+            ;
+            mesh.position.set ( r * 1000 , 3750 , c * 1000 )
+            ;
+            scene.add ( mesh )
+            ;
+            break ;
+          case 'e' :
+            mesh.rotation.set ( 270 * Math.PI / 180 , 0 , 0 )
+            ;
+            mesh.position.set ( r * 1000 , 0 , c * 1000 )
+            ;
+            meshAll.push ( { mesh : mesh , materialIndex : 1 } )
+            ;
+            meshEye = new THREE.Mesh( geometryEye , materialEye )
+            ;
+            meshEye.rotation.set ( Math.PI , 0 , 0 )
+            ;
+            meshEye.position.set ( r * 1000 , 1875 , c * 1000 )
+            ;
+            scene.add ( meshEye )
+            ;
+            break ;
+        }
+          var meshCeiling = new THREE.Mesh ( geometryTile )
+          ;
+        if ( c % 2 === 0 || r % 2 === 0 ) {
+          meshCeiling.rotation.set ( 90 * Math.PI / 180 , 0 , 0 )
+          ;
+          meshCeiling.position.set ( r * 1000 , 7500 , c * 1000 )
+          ;
+          meshAll.push ( { mesh : meshCeiling , materialIndex : 2 } )
+          ;
+        }
+      }
+    }
+    var meshLight = new THREE.Mesh ( geometryLight )
+    ;
+    meshLight.position.set ( 4000 , 3750 , 5000 )
+    ;
+    meshAll.push ( { mesh : meshLight , materialIndex : 3 } )
+    ;
+    meshSnow = new THREE.Points ( geometrySnow , materialSnow )
+    ;
+    scene.add ( meshSnow )
+    ;
+  }
+
+  function lights( )
+  {
+    var lightsAmbient = new THREE.AmbientLight ( 0xEA80FC , .25 )  //  pu a100
+    ;
+    scene.add ( lightsAmbient )
+    ;
+    var lightsSpot = new THREE.SpotLight ( 0xEA80FC , .5 )  //  pu a100
+    ;
+    lightsSpot.position.set ( 4000 , 7500 , 5000 )
+    ;
+    lightsSpot.target.position.set ( 4000 , 0 , 5000 )
+    ;
+    scene.add ( lightsSpot.target )
+    ;
+    scene.add ( lightsSpot )
+    ;
+  }
+
+    var composer , shader
+    ;
+  function post( )
+  {
+    var Shader = {
+      uniforms : uniforms ,
+      vertexShader : document.getElementById ( 'shVePo' ).textContent ,
+      fragmentShader : document.getElementById ( 'shFrPo' ).textContent
+    } ;
+    composer = new THREE.EffectComposer ( renderer )
+    ;
+    composer.addPass ( new THREE.RenderPass ( scene , camera ) )
+    ;
+    shader = new THREE.ShaderPass ( Shader )
+    ;
+    composer.addPass( shader )
+    ;
+    shader.renderToScreen = true
+  }
+
+</script>
+
+</body>
+
+<!--  ’Warner’ by George Waraw @ 08.2018  -->
