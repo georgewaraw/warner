@@ -1,3 +1,1 @@
-https://georgewaraw.github.io/warner/
-
-https://vimeo.com/297497813
+Left click or tap the screen to change camera view.
